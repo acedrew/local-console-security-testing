@@ -1,0 +1,597 @@
+# ============================================================================
+# Security Configuration for PKI System
+# ============================================================================
+# This file defines security policies, hardening settings, and compliance
+# requirements for the PKI infrastructure.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Certificate Policy
+# ----------------------------------------------------------------------------
+certificate_policy:
+  # Allowed cryptographic algorithms
+  algorithms:
+    allowed:
+      - name: ECDSA
+        curves:
+          - P-384
+          - P-521
+        recommended: P-384
+
+      - name: RSA
+        key_sizes:
+          - 4096
+          - 8192
+        recommended: 4096
+
+    forbidden:
+      - name: RSA
+        key_sizes:
+          - 1024
+          - 2048
+        reason: "Insufficient key strength"
+
+      - name: DSA
+        reason: "Deprecated algorithm"
+
+      - name: MD5
+        reason: "Cryptographically broken"
+
+      - name: SHA1
+        reason: "Collision attacks demonstrated"
+
+  # Certificate lifetime policies
+  lifetime:
+    # Maximum lifetime for different certificate types
+    device_certificates:
+      max_seconds: 900  # 15 minutes
+      default_seconds: 900
+      min_seconds: 300  # 5 minutes
+
+    service_certificates:
+      max_seconds: 3600  # 1 hour
+      default_seconds: 3600
+      min_seconds: 900
+
+    emergency_certificates:
+      max_seconds: 300  # 5 minutes
+      default_seconds: 300
+      min_seconds: 60
+
+    # Grace period for time synchronization issues
+    grace_period_seconds: 30
+
+    # Renewal window (percentage of lifetime)
+    renewal_window_percent: 50
+
+  # Certificate extensions
+  extensions:
+    # Critical extensions (must be present)
+    required:
+      - basicConstraints
+      - keyUsage
+      - subjectKeyIdentifier
+      - authorityKeyIdentifier
+
+    # Key usage flags
+    key_usage:
+      allowed:
+        - digitalSignature
+        - keyEncipherment
+        - keyAgreement
+
+      forbidden:
+        - keyCertSign  # Only for CA certificates
+        - cRLSign      # Only for CA certificates
+
+    # Extended key usage
+    extended_key_usage:
+      allowed:
+        - clientAuth
+        - serverAuth
+
+      forbidden:
+        - codeSigning
+        - emailProtection
+
+    # Subject Alternative Names (SAN)
+    subject_alternative_names:
+      require: true
+      types:
+        - DNS
+        - IP
+        - URI
+      max_entries: 10
+
+  # Certificate validation
+  validation:
+    strict_mode: true
+
+    checks:
+      - signature_verification
+      - validity_period
+      - revocation_status
+      - key_usage
+      - extended_key_usage
+      - subject_match
+      - issuer_match
+      - path_length
+      - policy_constraints
+
+    # Revocation checking
+    revocation:
+      require: true
+      methods:
+        - OCSP  # Preferred
+        - CRL   # Fallback
+
+      ocsp:
+        timeout_seconds: 5
+        max_retries: 3
+        cache_responses: true
+        cache_ttl_seconds: 300
+
+      crl:
+        max_age_seconds: 3600
+        download_timeout_seconds: 30
+        cache_enabled: true
+
+# ----------------------------------------------------------------------------
+# TLS/SSL Configuration
+# ----------------------------------------------------------------------------
+tls:
+  # Minimum TLS version
+  min_version: "1.3"
+
+  # Allowed TLS versions
+  allowed_versions:
+    - "1.3"
+    - "1.2"  # For compatibility (remove if not needed)
+
+  # Cipher suites (in order of preference)
+  cipher_suites:
+    tls_1_3:
+      - TLS_AES_256_GCM_SHA384
+      - TLS_CHACHA20_POLY1305_SHA256
+      - TLS_AES_128_GCM_SHA256
+
+    tls_1_2:  # Only if TLS 1.2 is enabled
+      - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+      - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+      - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+      - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+
+  # Certificate verification
+  verify_mode: CERT_REQUIRED
+
+  # Mutual TLS (mTLS)
+  mutual_tls:
+    enabled: true
+    require_client_cert: true
+    verify_client_cert: true
+
+  # OCSP Stapling
+  ocsp_stapling:
+    enabled: true
+    cache_ttl_seconds: 300
+
+  # Session configuration
+  session:
+    tickets_enabled: false  # Disable for perfect forward secrecy
+    cache_enabled: true
+    cache_timeout_seconds: 300
+
+  # HSTS (HTTP Strict Transport Security)
+  hsts:
+    enabled: true
+    max_age_seconds: 31536000  # 1 year
+    include_subdomains: true
+    preload: true
+
+# ----------------------------------------------------------------------------
+# Access Control
+# ----------------------------------------------------------------------------
+access_control:
+  # Authentication requirements
+  authentication:
+    methods:
+      - certificate
+      - api_key
+
+    certificate:
+      require: true
+      verify_chain: true
+      verify_hostname: true
+
+    api_key:
+      require: false
+      header_name: X-API-Key
+      min_length: 32
+      rotation_days: 90
+
+  # Authorization policies
+  authorization:
+    default_policy: deny
+
+    roles:
+      - name: admin
+        permissions:
+          - certificate:issue
+          - certificate:revoke
+          - certificate:list
+          - ca:manage
+          - config:write
+          - audit:read
+
+      - name: operator
+        permissions:
+          - certificate:issue
+          - certificate:list
+          - audit:read
+
+      - name: device
+        permissions:
+          - certificate:request
+          - certificate:renew
+
+      - name: readonly
+        permissions:
+          - certificate:list
+          - audit:read
+
+  # IP whitelisting (optional)
+  ip_whitelist:
+    enabled: false
+    mode: allow  # allow or deny
+    addresses:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+
+# ----------------------------------------------------------------------------
+# Rate Limiting
+# ----------------------------------------------------------------------------
+rate_limiting:
+  enabled: true
+
+  # Global rate limits
+  global:
+    requests_per_minute: 1000
+    requests_per_hour: 10000
+
+  # Per-endpoint rate limits
+  endpoints:
+    - path: /api/v1/certificates/issue
+      requests_per_minute: 100
+      burst: 20
+
+    - path: /api/v1/certificates/revoke
+      requests_per_minute: 50
+      burst: 10
+
+    - path: /api/v1/certificates/verify
+      requests_per_minute: 500
+      burst: 100
+
+  # Per-client rate limits
+  per_client:
+    enabled: true
+    requests_per_minute: 100
+    identifier: client_certificate_serial
+
+  # Response on rate limit exceeded
+  response:
+    http_status: 429
+    retry_after_seconds: 60
+    message: "Rate limit exceeded. Please try again later."
+
+# ----------------------------------------------------------------------------
+# Audit Logging
+# ----------------------------------------------------------------------------
+audit:
+  enabled: true
+
+  # Log all security-relevant events
+  events:
+    authentication:
+      - login_success
+      - login_failure
+      - logout
+      - session_expired
+
+    authorization:
+      - access_granted
+      - access_denied
+      - permission_changed
+
+    certificate:
+      - issued
+      - revoked
+      - renewed
+      - validation_failed
+      - request_denied
+
+    configuration:
+      - settings_changed
+      - policy_updated
+      - secrets_accessed
+
+    security:
+      - rate_limit_exceeded
+      - suspicious_activity
+      - intrusion_attempt
+      - vulnerability_detected
+
+  # Log format
+  format: json
+
+  # Log destinations
+  destinations:
+    - type: file
+      path: /app/logs/audit.log
+      rotation:
+        max_size_mb: 100
+        max_files: 30
+        compress: true
+
+    - type: syslog
+      enabled: false
+      host: syslog.example.com
+      port: 514
+      protocol: tcp
+      facility: local0
+
+    - type: http
+      enabled: false
+      url: https://logging-api.example.com/audit
+      method: POST
+      headers:
+        Authorization: "Bearer ${AUDIT_LOG_TOKEN}"
+
+  # Log retention
+  retention:
+    days: 365
+    archive_enabled: true
+    archive_path: /app/logs/archive
+
+  # Integrity protection
+  integrity:
+    signing_enabled: true
+    algorithm: SHA256withECDSA
+    verify_on_read: true
+
+# ----------------------------------------------------------------------------
+# Monitoring & Alerting
+# ----------------------------------------------------------------------------
+monitoring:
+  enabled: true
+
+  # Metrics collection
+  metrics:
+    prometheus:
+      enabled: true
+      port: 9090
+      path: /metrics
+
+    custom:
+      - name: certificates_issued_total
+        type: counter
+        help: "Total number of certificates issued"
+
+      - name: certificates_revoked_total
+        type: counter
+        help: "Total number of certificates revoked"
+
+      - name: certificate_validation_failures_total
+        type: counter
+        help: "Total number of certificate validation failures"
+
+      - name: certificate_issuance_duration_seconds
+        type: histogram
+        help: "Time taken to issue a certificate"
+
+      - name: active_certificates
+        type: gauge
+        help: "Number of currently active certificates"
+
+  # Health checks
+  health_checks:
+    - name: ca_available
+      interval_seconds: 30
+      timeout_seconds: 5
+
+    - name: mqtt_broker_connected
+      interval_seconds: 30
+      timeout_seconds: 5
+
+    - name: database_accessible
+      interval_seconds: 60
+      timeout_seconds: 10
+
+    - name: disk_space
+      interval_seconds: 300
+      threshold_percent: 90
+
+    - name: memory_usage
+      interval_seconds: 60
+      threshold_percent: 80
+
+  # Alerting
+  alerts:
+    critical:
+      - condition: ca_key_access_unauthorized
+        action: immediate_notification
+        channels:
+          - email
+          - pagerduty
+
+      - condition: certificate_issuance_spike
+        threshold: 200  # Percent of baseline
+        action: investigate
+        channels:
+          - slack
+
+      - condition: multiple_auth_failures
+        threshold: 10
+        window_seconds: 300
+        action: block_ip
+        channels:
+          - email
+
+    warning:
+      - condition: certificate_near_expiration
+        threshold_percent: 10
+        action: auto_renew
+        channels:
+          - slack
+
+      - condition: mqtt_broker_disconnected
+        action: failover
+        channels:
+          - email
+
+      - condition: high_resource_usage
+        threshold_percent: 80
+        action: scale_up
+        channels:
+          - slack
+
+# ----------------------------------------------------------------------------
+# Compliance
+# ----------------------------------------------------------------------------
+compliance:
+  # Regulatory frameworks
+  frameworks:
+    - name: SOC2
+      enabled: true
+      controls:
+        - access_control
+        - encryption_at_rest
+        - encryption_in_transit
+        - audit_logging
+        - incident_response
+
+    - name: ISO27001
+      enabled: true
+      controls:
+        - information_security_policy
+        - access_control
+        - cryptography
+        - operational_security
+        - incident_management
+
+    - name: NIST_CSF
+      enabled: true
+      categories:
+        - identify
+        - protect
+        - detect
+        - respond
+        - recover
+
+  # Data protection
+  data_protection:
+    encryption_at_rest:
+      enabled: true
+      algorithm: AES-256-GCM
+      key_rotation_days: 90
+
+    encryption_in_transit:
+      enabled: true
+      min_tls_version: "1.3"
+
+    data_classification:
+      - level: critical
+        data_types:
+          - ca_private_keys
+          - client_private_keys
+        protection:
+          - encryption
+          - access_control
+          - audit_logging
+
+      - level: sensitive
+        data_types:
+          - certificates
+          - audit_logs
+        protection:
+          - encryption
+          - access_control
+
+      - level: internal
+        data_types:
+          - configuration
+          - metrics
+        protection:
+          - access_control
+
+# ----------------------------------------------------------------------------
+# Incident Response
+# ----------------------------------------------------------------------------
+incident_response:
+  enabled: true
+
+  # Automated responses
+  automated:
+    - trigger: multiple_failed_auth
+      threshold: 5
+      window_seconds: 300
+      actions:
+        - block_ip
+        - alert_security_team
+
+    - trigger: certificate_compromise_detected
+      actions:
+        - revoke_certificate
+        - alert_security_team
+        - quarantine_device
+
+    - trigger: ca_key_access_anomaly
+      actions:
+        - disable_ca
+        - alert_critical
+        - initiate_investigation
+
+  # Playbooks
+  playbooks:
+    - name: certificate_compromise
+      steps:
+        - verify_compromise
+        - revoke_certificate
+        - identify_affected_systems
+        - notify_stakeholders
+        - conduct_forensics
+        - update_security_controls
+
+    - name: ca_key_compromise
+      steps:
+        - disable_ca_immediately
+        - notify_executive_team
+        - engage_incident_response_team
+        - conduct_forensic_analysis
+        - assess_scope_of_breach
+        - revoke_all_certificates
+        - generate_new_ca
+        - redistribute_trust_anchors
+        - file_regulatory_notifications
+
+  # Contact information
+  contacts:
+    security_team:
+      email: security@example.com
+      phone: "+1-555-0100"
+      oncall: true
+
+    executive_team:
+      email: executives@example.com
+      escalation_threshold: critical
+
+# ============================================================================
+# Security Configuration Validation
+# ============================================================================
+# This configuration is validated on service startup. Any violations will
+# prevent the service from starting.
+#
+# To validate manually:
+# python -m config.validator --config security-config.yml
+# ============================================================================

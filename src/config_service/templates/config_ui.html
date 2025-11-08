@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AceIoT Configuration Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .cert-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            border-radius: 10px;
+            padding: 10px 20px;
+            margin-top: 15px;
+        }
+
+        .cert-badge .icon {
+            font-size: 1.5em;
+        }
+
+        .cert-badge .info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cert-badge .label {
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        .cert-badge .value {
+            font-weight: 600;
+            color: #2e7d32;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .editor {
+            position: relative;
+        }
+
+        #config-editor {
+            width: 100%;
+            min-height: 500px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+        }
+
+        #config-editor:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d32f2f;
+            transform: translateY(-2px);
+        }
+
+        .version-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .version-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .version-item:hover {
+            background: #e3f2fd;
+            transform: translateX(5px);
+        }
+
+        .version-item .version-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .version-number {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .version-date {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .version-author {
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            color: #2e7d32;
+        }
+
+        .alert-error {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            color: #c62828;
+        }
+
+        .alert-warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            color: #f57c00;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 AceIoT Configuration Manager</h1>
+            <p style="color: #666; margin-top: 10px;">Secure configuration management with mTLS authentication</p>
+
+            <div class="cert-badge">
+                <span class="icon">✅</span>
+                <div class="info">
+                    <span class="label">Authenticated as:</span>
+                    <span class="value">{{ cert_info.get('subject', {}).get('CN', 'Unknown') }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <div class="main-content">
+            <div class="panel editor">
+                <h2>📝 Configuration Editor</h2>
+
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-number" id="version-count">{{ version_count }}</div>
+                        <div class="stat-label">Total Versions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="char-count">0</div>
+                        <div class="stat-label">Characters</div>
+                    </div>
+                </div>
+
+                <textarea id="config-editor" spellcheck="false">{{ config }}</textarea>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="saveConfig()">
+                        💾 Save Configuration
+                    </button>
+                    <button class="btn btn-secondary" onclick="validateConfig()">
+                        ✓ Validate JSON
+                    </button>
+                    <button class="btn btn-secondary" onclick="reloadConfig()">
+                        🔄 Reload
+                    </button>
+                </div>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 10px; color: #666;">Processing...</p>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>📚 Version History</h2>
+                <div class="version-list">
+                    {% if versions %}
+                        {% for version in versions %}
+                        <div class="version-item" onclick="loadVersion({{ version.version }})">
+                            <div class="version-header">
+                                <span class="version-number">Version {{ version.version }}</span>
+                                <span class="version-date">{{ version.timestamp }}</span>
+                            </div>
+                            <div class="version-author">
+                                👤 {{ version.get('author', 'Unknown') }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p style="text-align: center; color: #666; padding: 20px;">
+                            No version history yet. Make your first configuration change!
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const editor = document.getElementById('config-editor');
+        const charCount = document.getElementById('char-count');
+
+        // Update character count
+        editor.addEventListener('input', () => {
+            charCount.textContent = editor.value.length;
+        });
+
+        // Initialize character count
+        charCount.textContent = editor.value.length;
+
+        function showAlert(message, type = 'success') {
+            const container = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} show`;
+            alert.innerHTML = `<strong>${type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️'}</strong> ${message}`;
+            container.innerHTML = '';
+            container.appendChild(alert);
+
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 5000);
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            if (show) {
+                loading.classList.add('show');
+            } else {
+                loading.classList.remove('show');
+            }
+        }
+
+        function validateConfig() {
+            try {
+                const config = JSON.parse(editor.value);
+                showAlert('✓ Configuration is valid JSON!', 'success');
+                return true;
+            } catch (e) {
+                showAlert(`Invalid JSON: ${e.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function saveConfig() {
+            if (!validateConfig()) {
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                const config = JSON.parse(editor.value);
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert(`Configuration saved successfully by ${data.author}!`, 'success');
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    showAlert(`Failed to save: ${data.detail || 'Unknown error'}`, 'error');
+                }
+            } catch (e) {
+                showAlert(`Error saving configuration: ${e.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function reloadConfig() {
+            showLoading(true);
+
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
+
+                if (response.ok) {
+                    editor.value = JSON.stringify(data.config, null, 2);
+                    charCount.textContent = editor.value.length;
+                    showAlert('Configuration reloaded!', 'success');
+                } else {
+                    showAlert(`Failed to reload: ${data.detail || 'Unknown error'}`, 'error');
+                }
+            } catch (e) {
+                showAlert(`Error reloading configuration: ${e.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function loadVersion(version) {
+            if (!confirm(`Load version ${version}? Current changes will be lost.`)) {
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                const response = await fetch(`/api/versions/${version}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    editor.value = JSON.stringify(data.config, null, 2);
+                    charCount.textContent = editor.value.length;
+                    showAlert(`Loaded version ${version}. Click Save to restore it.`, 'warning');
+                } else {
+                    showAlert(`Failed to load version: ${data.detail || 'Unknown error'}`, 'error');
+                }
+            } catch (e) {
+                showAlert(`Error loading version: ${e.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Auto-save reminder
+        let lastSavedValue = editor.value;
+        setInterval(() => {
+            if (editor.value !== lastSavedValue) {
+                showAlert('You have unsaved changes!', 'warning');
+            }
+        }, 30000); // Check every 30 seconds
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveConfig();
+            }
+        });
+    </script>
+</body>
+</html>

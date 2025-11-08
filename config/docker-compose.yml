@@ -1,0 +1,410 @@
+version: '3.8'
+
+# ============================================================================
+# Docker Compose Configuration for PKI System
+# Security-hardened multi-container orchestration
+# ============================================================================
+
+services:
+  # ==========================================================================
+  # PKI Service - Certificate Authority and Certificate Management
+  # ==========================================================================
+  pki-service:
+    build:
+      context: ..
+      dockerfile: docker/pki-service.Dockerfile
+
+    container_name: pki-service
+    hostname: pki-service
+
+    # Security: Read-only root filesystem
+    read_only: true
+
+    # Security: Drop all capabilities, add only necessary ones
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE  # Allow binding to port 8443
+
+    # Security: No new privileges
+    security_opt:
+      - no-new-privileges:true
+
+    # Security: AppArmor/SELinux profile (uncomment if available)
+    # security_opt:
+    #   - apparmor=docker-pki
+    #   - seccomp=./security/seccomp-pki.json
+
+    # Resource limits to prevent DoS
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+    # Environment configuration (non-sensitive only!)
+    environment:
+      - PKI_LOG_LEVEL=INFO
+      - PKI_CERT_LIFETIME=900  # 15 minutes in seconds
+      - PKI_CERT_ALGORITHM=ECDSA
+      - PKI_CERT_KEY_SIZE=384
+      - PKI_ENABLE_OCSP=true
+      - PKI_ENABLE_CRL=true
+      - MQTT_VERIFY_ENABLED=true
+      - TZ=UTC
+
+    # Secrets management (Docker Swarm secrets or external secrets manager)
+    secrets:
+      - ca_private_key
+      - ca_certificate
+      - server_key
+      - server_cert
+      - mqtt_credentials
+
+    # Volumes (writable locations on read-only filesystem)
+    volumes:
+      # Certificate storage (persistent, backed up)
+      - pki_certificates:/app/certs:rw
+
+      # Certificate database (persistent, backed up)
+      - pki_data:/app/data:rw
+
+      # Logs (persistent, rotated)
+      - pki_logs:/app/logs:rw
+
+      # Temporary files (tmpfs - in memory)
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 100M
+          mode: 1777
+
+    # Network configuration
+    networks:
+      - pki_internal
+      - pki_external
+
+    # Port mapping (HTTPS only)
+    ports:
+      - "8443:8443"
+
+    # Dependencies
+    depends_on:
+      mqtt-broker:
+        condition: service_healthy
+      config-service:
+        condition: service_started
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('https://localhost:8443/health', context=__import__('ssl')._create_unverified_context())"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=pki,environment=production"
+        tag: "{{.Name}}/{{.ID}}"
+
+  # ==========================================================================
+  # Configuration Service - Manages PKI configuration and validation
+  # ==========================================================================
+  config-service:
+    build:
+      context: ..
+      dockerfile: docker/config-service.Dockerfile
+
+    container_name: config-service
+    hostname: config-service
+
+    # Security hardening
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    # Environment
+    environment:
+      - CONFIG_VALIDATE_ON_START=true
+      - CONFIG_WATCH_ENABLED=true
+      - TZ=UTC
+
+    # Volumes
+    volumes:
+      # Configuration files (read-only from host)
+      - ../config:/app/config:ro
+
+      # Configuration templates
+      - config_templates:/app/templates:rw
+
+      # Logs
+      - config_logs:/app/logs:rw
+
+      # Temporary files
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 50M
+
+    # Network (internal only - no external access)
+    networks:
+      - pki_internal
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "sh", "-c", "[ -f /app/config/health.lock ]"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ==========================================================================
+  # MQTT Broker - Device verification and authorization
+  # ==========================================================================
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0-openssl
+
+    container_name: mqtt-broker
+    hostname: mqtt-broker
+
+    # Security
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    # Volumes
+    volumes:
+      # MQTT configuration
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+      # MQTT ACLs
+      - ./mosquitto/acl.conf:/mosquitto/config/acl.conf:ro
+
+      # Certificates for TLS
+      - mqtt_certs:/mosquitto/certs:ro
+
+      # Data persistence
+      - mqtt_data:/mosquitto/data:rw
+
+      # Logs
+      - mqtt_logs:/mosquitto/log:rw
+
+    # Secrets
+    secrets:
+      - mqtt_ca_cert
+      - mqtt_server_cert
+      - mqtt_server_key
+
+    # Network
+    networks:
+      - pki_internal
+      - mqtt_network
+
+    # Ports (TLS only)
+    ports:
+      - "8883:8883"  # MQTT over TLS
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/broker/uptime", "-C", "1", "-i", "health_check", "-W", "3"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+
+# ==============================================================================
+# Networks - Isolated network segments for security
+# ==============================================================================
+networks:
+  # Internal network for service-to-service communication
+  pki_internal:
+    driver: bridge
+    internal: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/24
+    labels:
+      - "com.example.security.zone=internal"
+
+  # External network for client access
+  pki_external:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.21.0.0/24
+    labels:
+      - "com.example.security.zone=external"
+
+  # MQTT-specific network
+  mqtt_network:
+    driver: bridge
+    internal: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.22.0.0/24
+    labels:
+      - "com.example.security.zone=mqtt"
+
+# ==============================================================================
+# Volumes - Persistent storage with backup strategy
+# ==============================================================================
+volumes:
+  # PKI Service volumes
+  pki_certificates:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PKI_CERT_DIR:-./data/certificates}
+      o: bind,uid=1000,gid=1000
+    labels:
+      - "com.example.backup.enabled=true"
+      - "com.example.backup.frequency=hourly"
+
+  pki_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PKI_DATA_DIR:-./data/pki}
+      o: bind,uid=1000,gid=1000
+    labels:
+      - "com.example.backup.enabled=true"
+      - "com.example.backup.frequency=hourly"
+
+  pki_logs:
+    driver: local
+    labels:
+      - "com.example.backup.enabled=false"
+
+  # Config Service volumes
+  config_templates:
+    driver: local
+
+  config_logs:
+    driver: local
+
+  # MQTT Broker volumes
+  mqtt_certs:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${MQTT_CERT_DIR:-./data/mqtt-certs}
+      o: bind,uid=1883,gid=1883,ro
+
+  mqtt_data:
+    driver: local
+    labels:
+      - "com.example.backup.enabled=true"
+      - "com.example.backup.frequency=daily"
+
+  mqtt_logs:
+    driver: local
+
+# ==============================================================================
+# Secrets - Sensitive data management
+# ==============================================================================
+# Note: For production, use external secrets management (Docker Swarm secrets,
+#       Kubernetes secrets, HashiCorp Vault, AWS Secrets Manager, etc.)
+# ==============================================================================
+secrets:
+  ca_private_key:
+    file: ${SECRETS_DIR:-./secrets}/ca-private-key.pem
+
+  ca_certificate:
+    file: ${SECRETS_DIR:-./secrets}/ca-certificate.pem
+
+  server_key:
+    file: ${SECRETS_DIR:-./secrets}/server-key.pem
+
+  server_cert:
+    file: ${SECRETS_DIR:-./secrets}/server-cert.pem
+
+  mqtt_credentials:
+    file: ${SECRETS_DIR:-./secrets}/mqtt-credentials.json
+
+  mqtt_ca_cert:
+    file: ${SECRETS_DIR:-./secrets}/mqtt-ca-cert.pem
+
+  mqtt_server_cert:
+    file: ${SECRETS_DIR:-./secrets}/mqtt-server-cert.pem
+
+  mqtt_server_key:
+    file: ${SECRETS_DIR:-./secrets}/mqtt-server-key.pem
+
+# ==============================================================================
+# Security Hardening Summary
+# ==============================================================================
+# ✅ Read-only root filesystems
+# ✅ Non-root users in all containers
+# ✅ Minimal capabilities (drop ALL, add only necessary)
+# ✅ No new privileges
+# ✅ Network isolation (internal/external separation)
+# ✅ Resource limits (CPU, memory)
+# ✅ Secrets management (Docker secrets)
+# ✅ Health checks for all services
+# ✅ Log rotation and size limits
+# ✅ TLS for all external communications
+# ✅ Backup labels for critical volumes
+#
+# Additional Hardening (Production):
+# - Enable AppArmor/SELinux profiles
+# - Use seccomp profiles
+# - Implement network policies (iptables/nftables)
+# - Set up centralized logging (ELK, Splunk)
+# - Configure external secrets manager (Vault, AWS SM)
+# - Enable Docker Content Trust (image signing)
+# - Implement runtime security scanning (Falco)
+# - Set up intrusion detection (OSSEC, Wazuh)
+# ==============================================================================

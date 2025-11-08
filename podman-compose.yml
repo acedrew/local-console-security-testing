@@ -1,0 +1,201 @@
+version: '3.8'
+
+# ==============================================================================
+# Podman Compose Configuration for PKI System
+# Simplified for local development and testing
+# ==============================================================================
+
+services:
+  # ==========================================================================
+  # PKI Service - Certificate Authority and Certificate Management
+  # ==========================================================================
+  pki-service:
+    build:
+      context: .
+      dockerfile: docker/pki-service.Dockerfile
+
+    container_name: pki-service
+    hostname: pki-service
+
+    # Environment configuration
+    environment:
+      - PKI_LOG_LEVEL=${PKI_LOG_LEVEL:-INFO}
+      - PKI_CERT_LIFETIME=${PKI_CERT_LIFETIME:-3600}  # 1 hour in seconds
+      - PKI_ROOT_CA_DIR=/app/data/ca/root_ca
+      - PKI_INTERMEDIATE_CA_DIR=/app/data/ca/intermediate_cas
+      - PKI_CERT_DIR=/app/data/certificates
+      - PKI_DATA_DIR=/app/data
+      - TZ=UTC
+      - PYTHONUNBUFFERED=1
+
+    # Volumes for data persistence
+    volumes:
+      # Main data directory (CA keys, certificates, etc.)
+      - ./data/pki:/app/data:rw
+
+      # Logs
+      - ./data/logs/pki:/app/logs:rw
+
+      # Source code for development (optional - comment out for production)
+      - ./src:/app/src:ro
+
+    # Network configuration
+    networks:
+      - pki_network
+
+    # Port mapping
+    ports:
+      - "${PKI_PORT:-8000}:8000"
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+
+    # User namespace (run as non-root)
+    # Note: Comment out if you get permission errors
+    # user: "${UID:-1000}:${GID:-1000}"
+
+  # ==========================================================================
+  # Configuration Service - Streamlit UI for configuration management
+  # ==========================================================================
+  config-service:
+    build:
+      context: .
+      dockerfile: docker/config-service.Dockerfile
+
+    container_name: config-service
+    hostname: config-service
+
+    # Environment
+    environment:
+      - CONFIG_DIR=/app/config
+      - PKI_SERVICE_URL=http://pki-service:8000
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - TZ=UTC
+      - PYTHONUNBUFFERED=1
+
+    # Volumes
+    volumes:
+      # Configuration storage
+      - ./data/config:/app/config:rw
+
+      # Logs
+      - ./data/logs/config:/app/logs:rw
+
+      # Source code for development (optional)
+      - ./src:/app/src:ro
+
+    # Network (same network to communicate with PKI service)
+    networks:
+      - pki_network
+
+    # Port mapping
+    ports:
+      - "${CONFIG_PORT:-8501}:8501"
+
+    # Dependencies
+    depends_on:
+      pki-service:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+    # User namespace (run as non-root)
+    # Note: Comment out if you get permission errors
+    # user: "${UID:-1000}:${GID:-1000}"
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  pki_network:
+    driver: bridge
+
+# ==============================================================================
+# Podman-Compose Usage Instructions
+# ==============================================================================
+#
+# 1. Create required directories:
+#    mkdir -p data/{pki,config,logs/{pki,config}}
+#
+# 2. Set ownership (if needed):
+#    sudo chown -R $UID:$GID data/
+#
+# 3. Create .env file (optional):
+#    cat > .env << 'EOF'
+#    PKI_PORT=8000
+#    CONFIG_PORT=8501
+#    PKI_LOG_LEVEL=INFO
+#    PKI_CERT_LIFETIME=3600
+#    UID=1000
+#    GID=1000
+#    EOF
+#
+# 4. Build and start services:
+#    podman-compose build
+#    podman-compose up -d
+#
+# 5. Check status:
+#    podman-compose ps
+#    podman-compose logs -f pki-service
+#
+# 6. Access services:
+#    - PKI Service: http://localhost:8000
+#    - PKI API Docs: http://localhost:8000/docs
+#    - Config Interface: http://localhost:8501
+#
+# 7. Stop services:
+#    podman-compose down
+#
+# 8. Clean up (WARNING: deletes all data):
+#    podman-compose down -v
+#    rm -rf data/
+#
+# ==============================================================================
+# Notes for Podman Users
+# ==============================================================================
+#
+# - Podman runs rootless by default, which is more secure
+# - User mapping (UID:GID) ensures files are owned by your user
+# - No Docker secrets needed - files are directly mounted
+# - For SELinux systems, you may need to add :z or :Z to volumes:
+#   - ./data/pki:/app/data:z (shared)
+#   - ./data/pki:/app/data:Z (private)
+#
+# - To run with sudo (not recommended):
+#   sudo podman-compose up -d
+#
+# - To run in pod mode (Kubernetes-like):
+#   podman pod create --name pki-pod -p 8000:8000 -p 8501:8501
+#   podman run --pod pki-pod ...
+#
+# ==============================================================================

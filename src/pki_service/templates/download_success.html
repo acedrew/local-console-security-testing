@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Issued Successfully</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .success-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .cert-info {
+            background: #f8f9fa;
+            border-left: 4px solid #4caf50;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 10px;
+        }
+
+        .cert-info h3 {
+            color: #4caf50;
+            margin-bottom: 15px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        .download-section {
+            margin-top: 30px;
+        }
+
+        .download-section h3 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .download-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .download-btn {
+            display: block;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .download-btn .icon {
+            font-size: 1.5em;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .alert-warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            color: #f57c00;
+        }
+
+        .alert-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            color: #1976d2;
+        }
+
+        .expiry-timer {
+            text-align: center;
+            padding: 20px;
+            background: #fff3e0;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .expiry-timer .time {
+            font-size: 2em;
+            font-weight: bold;
+            color: #f57c00;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        .usage-examples {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .usage-examples h4 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .usage-examples pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .download-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="success-icon">✅</div>
+            <h1>Certificate Issued Successfully!</h1>
+            <p>Your client certificate is ready for download</p>
+        </div>
+
+        <div class="content">
+            <div class="cert-info">
+                <h3>📋 Certificate Information</h3>
+                <div class="info-row">
+                    <span class="info-label">Common Name:</span>
+                    <span class="info-value">{{ common_name }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Server ID:</span>
+                    <span class="info-value">{{ server_id }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Serial Number:</span>
+                    <span class="info-value">{{ serial_number }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Valid From:</span>
+                    <span class="info-value">{{ valid_from }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Expires:</span>
+                    <span class="info-value">{{ expires }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Fingerprint:</span>
+                    <span class="info-value" style="font-size: 0.8em;">{{ fingerprint }}</span>
+                </div>
+            </div>
+
+            <!-- P12 Password Section -->
+            <div class="alert" style="background: #fff8e1; border-left: 4px solid #ffc107; color: #f57f17; margin: 30px 0;">
+                <h3 style="color: #f57f17; margin-bottom: 15px;">🔑 P12 Password (Required for macOS Import)</h3>
+                <p style="margin-bottom: 15px;">
+                    <strong>Important:</strong> You'll need this password when importing the PKCS#12 (.p12) file on macOS.
+                </p>
+
+                <div style="background: white; padding: 20px; border-radius: 8px; border: 2px solid #ffc107; margin: 15px 0;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 15px;">
+                        <div>
+                            <span style="font-size: 0.9em; color: #666; display: block; margin-bottom: 5px;">Your P12 Password:</span>
+                            <code id="p12-password" style="font-size: 1.5em; font-family: 'Monaco', 'Courier New', monospace; color: #333; letter-spacing: 2px; user-select: all;">{{ p12_password }}</code>
+                        </div>
+                        <button onclick="copyPassword()" style="padding: 10px 20px; background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; white-space: nowrap; transition: all 0.3s;">
+                            📋 Copy
+                        </button>
+                    </div>
+                </div>
+
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <p style="font-weight: 600; margin-bottom: 10px;">📱 macOS Import Instructions:</p>
+                    <ol style="margin-left: 20px; line-height: 1.8;">
+                        <li>Download the <strong>PKCS#12 (.p12)</strong> file below</li>
+                        <li>Run: <code style="background: white; padding: 2px 6px; border-radius: 3px;">./scripts/macos-cert-import.sh import ~/Downloads/client-*.p12</code></li>
+                        <li><strong>First prompt:</strong> Enter the password above (<code style="background: white; padding: 2px 6px; border-radius: 3px;">{{ p12_password }}</code>)</li>
+                        <li><strong>Second prompt:</strong> Enter your Mac login password</li>
+                        <li>Restart Chrome completely (Cmd+Q, then reopen)</li>
+                        <li>Visit https://localhost:8501 - Chrome will prompt for certificate selection</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="expiry-timer">
+                <p style="margin-bottom: 10px;">⏱️ Time until expiration:</p>
+                <div class="time" id="countdown">{{ time_remaining }}</div>
+            </div>
+
+            <div class="download-section">
+                <h3>📥 Download Your Certificate</h3>
+
+                <div class="download-grid">
+                    <a href="/ui/download/{{ cert_id }}/pem" class="download-btn">
+                        <span class="icon">📄</span>
+                        PEM Format
+                    </a>
+                    <a href="/ui/download/{{ cert_id }}/key" class="download-btn">
+                        <span class="icon">🔑</span>
+                        Private Key
+                    </a>
+                    <a href="/ui/download/{{ cert_id }}/ca-chain" class="download-btn">
+                        <span class="icon">🔗</span>
+                        CA Chain
+                    </a>
+                    <a href="/ui/download/{{ cert_id }}/bundle" class="download-btn">
+                        <span class="icon">📦</span>
+                        Bundle (All-in-One)
+                    </a>
+                    <a href="/ui/download/{{ cert_id }}/p12" class="download-btn">
+                        <span class="icon">💼</span>
+                        PKCS#12 (.p12)
+                    </a>
+                    <a href="/ui/download/{{ cert_id }}/der" class="download-btn">
+                        <span class="icon">🔐</span>
+                        DER Format
+                    </a>
+                </div>
+
+                <div class="alert alert-warning">
+                    <strong>⚠️ Important:</strong> Download all files immediately. This certificate expires in <strong>1 hour</strong>.
+                </div>
+            </div>
+
+            <div class="usage-examples">
+                <h4>💡 Usage Examples</h4>
+
+                <p><strong>With cURL:</strong></p>
+                <pre>curl --cert client.pem --key client.key --cacert ca-chain.pem \
+  https://config-server:8501</pre>
+
+                <p style="margin-top: 15px;"><strong>With Python requests:</strong></p>
+                <pre>import requests
+response = requests.get(
+    'https://config-server:8501',
+    cert=('client.pem', 'client.key'),
+    verify='ca-chain.pem'
+)</pre>
+
+                <p style="margin-top: 15px;"><strong>With wget:</strong></p>
+                <pre>wget --certificate=client.pem --private-key=client.key \
+  --ca-certificate=ca-chain.pem https://config-server:8501</pre>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>ℹ️ Next Steps:</strong>
+                <ol style="margin-top: 10px; margin-left: 20px;">
+                    <li>Download all certificate files</li>
+                    <li>Store the private key securely</li>
+                    <li>Configure your HTTP client with the certificates</li>
+                    <li>Test the connection to the config server</li>
+                </ol>
+            </div>
+
+            <div class="action-buttons">
+                <a href="/ui/download" class="btn btn-primary">🎫 Issue Another Certificate</a>
+                <a href="/docs" class="btn btn-secondary">📚 View API Documentation</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Countdown timer
+        const expiryTime = new Date("{{ expires_iso }}").getTime();
+
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const distance = expiryTime - now;
+
+            if (distance < 0) {
+                document.getElementById("countdown").innerHTML = "EXPIRED";
+                document.getElementById("countdown").style.color = "#d32f2f";
+                return;
+            }
+
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            document.getElementById("countdown").innerHTML =
+                String(minutes).padStart(2, '0') + ":" + String(seconds).padStart(2, '0');
+        }
+
+        // Update countdown every second
+        setInterval(updateCountdown, 1000);
+        updateCountdown();
+
+        // Copy P12 password to clipboard
+        function copyPassword() {
+            const password = document.getElementById('p12-password').textContent;
+            navigator.clipboard.writeText(password).then(function() {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                btn.style.background = 'linear-gradient(135deg, #4caf50 0%, #45a049 100%)';
+                setTimeout(function() {
+                    btn.textContent = originalText;
+                    btn.style.background = 'linear-gradient(135deg, #ffc107 0%, #ff9800 100%)';
+                }, 2000);
+            }).catch(function(err) {
+                alert('Failed to copy password: ' + err);
+            });
+        }
+    </script>
+</body>
+</html>
