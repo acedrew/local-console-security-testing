@@ -97,7 +97,7 @@ class CertificateIssuer:
             "certificate": cert_pem,
             "private_key": key_pem,
             "ca_chain": ca_chain,
-            "serial_number": cert.serial_number,
+            "serial_number": str(cert.serial_number),  # Convert to string for JavaScript compatibility
             "not_valid_before": cert.not_valid_before,
             "not_valid_after": cert.not_valid_after,
             "fingerprint_sha256": fingerprint,
@@ -191,7 +191,7 @@ class CertificateIssuer:
                     if subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME) else "Unknown"
 
                 certs.append({
-                    "serial_number": cert.serial_number,
+                    "serial_number": str(cert.serial_number),  # Convert to string for JavaScript compatibility
                     "common_name": common_name,
                     "not_valid_before": cert.not_valid_before.isoformat(),
                     "not_valid_after": cert.not_valid_after.isoformat(),

@@ -271,7 +271,7 @@ class CAManager:
 
         return {
             "subject": root_cert.subject.rfc4514_string(),
-            "serial_number": root_cert.serial_number,
+            "serial_number": str(root_cert.serial_number),  # Convert to string for JavaScript compatibility
             "not_valid_before": root_cert.not_valid_before.isoformat(),
             "not_valid_after": root_cert.not_valid_after.isoformat(),
             "fingerprint_sha256": CertificateVerifier.get_certificate_fingerprint(root_cert),
@@ -292,7 +292,7 @@ class CAManager:
         return {
             "server_id": server_id,
             "subject": cert.subject.rfc4514_string(),
-            "serial_number": cert.serial_number,
+            "serial_number": str(cert.serial_number),  # Convert to string for JavaScript compatibility
             "not_valid_before": cert.not_valid_before.isoformat(),
             "not_valid_after": cert.not_valid_after.isoformat(),
             "fingerprint_sha256": CertificateVerifier.get_certificate_fingerprint(cert),
